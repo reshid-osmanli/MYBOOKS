@@ -1,0 +1,12 @@
+# خطوط أصلية من مصادر خارجية (تُنزَّل عند الحاجة)
+work/fonts/
+work/*.ttf
+work/*.otf
+work/*.woff
+work/*.woff2
+
+# مخرجات وسيطة
+work/*.png
+work/__pycache__/
+work/tree.json
+work/font_sakkal_bold.ttf
