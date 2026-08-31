@@ -5,6 +5,8 @@ work/*.otf
 work/*.woff
 work/*.woff2
 
+.venv/
+
 # مخرجات وسيطة
 work/*.png
 work/__pycache__/

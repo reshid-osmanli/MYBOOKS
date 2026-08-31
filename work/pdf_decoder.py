@@ -24,6 +24,67 @@ import fitz
 from fontTools.ttLib import TTFont
 
 
+def glyph_name_to_chars(name):
+    """Best-effort conversion of a font glyph name to a Unicode string.
+
+    Handles MS Word / Sakkal Majalla names:
+      uniXXXX[YYYY][.form], uXXXX[.form], liga.XXXX[YYYY]...
+    Presentation forms are NFKC-normalized (e.g. uniFEE9 -> ه).
+    Returns an empty string when the name cannot be interpreted.
+    """
+    if not name:
+        return ""
+    base = name
+    # strip contextual suffix used by Sakkal Majalla (.init .medi .fina .isol .altN)
+    for suf in (".initlow.tall", ".initlow", ".init.tall", ".medi.tall",
+                ".fina.tall", ".fina.short", ".medi.narrow", ".fina.narrow",
+                ".init", ".medi", ".fina", ".isol", ".alt1", ".alt2",
+                ".alt3", ".alt4", ".alt5", ".alt6", ".alt7", ".alt8",
+                ".alt9", ".alt10"):
+        if base.endswith(suf):
+            base = base[:-len(suf)]
+            break
+
+    m = re.match(r"^uni([0-9A-Fa-f]+)$", base)
+    if m:
+        hexes = [m.group(1)[i:i+4] for i in range(0, len(m.group(1)), 4)]
+        try:
+            out = "".join(chr(int(h, 16)) for h in hexes if len(h) == 4)
+            n = unicodedata.normalize("NFKC", out)
+            return n if n else out
+        except Exception:
+            return ""
+    m = re.match(r"^u([0-9A-Fa-f]{4,6})$", base)
+    if m:
+        try:
+            return unicodedata.normalize("NFKC", chr(int(m.group(1), 16)))
+        except Exception:
+            return ""
+
+    # ligature glyphs: liga.0628.init  ->  ب
+    m = re.match(r"^liga\.([0-9A-Fa-f]+)$", base)
+    if m:
+        s = m.group(1)
+        hexes = [s[i:i+4] for i in range(0, len(s), 4)]
+        try:
+            out = "".join(chr(int(h, 16)) for h in hexes if len(h) == 4)
+            n = unicodedata.normalize("NFKC", out)
+            return n if n else out
+        except Exception:
+            return ""
+    return ""
+
+
+def _is_arabic_str(s):
+    if not s:
+        return False
+    for ch in s:
+        o = ord(ch)
+        if 0x0600 <= o <= 0x06FF or 0xFB50 <= o <= 0xFEFF or o == 0x0640:
+            return True
+    return False
+
+
 class FontMap:
     """CID -> unicode mapping for one font, with ToUnicode as primary."""
 
@@ -33,6 +94,7 @@ class FontMap:
         self.tu = to_unicode or {}
         self.override = override or {}
         self.gid2chars = defaultdict(set)
+        self.gname2chars = defaultdict(set)
         self.upm = 1000
         self.advances = {}
         try:
@@ -67,19 +129,25 @@ class FontMap:
             n = unicodedata.normalize("NFKC", ch)
             if n:
                 self.gid2chars[gid].add(n)
-        # glyph names
+        # glyph names (including contextual forms: uni0642.medi, uni0627.fina...)
         for gid, name in enumerate(order):
-            m = re.match(r"^uni([0-9A-Fa-f]{4,6})$", name)
-            if m:
-                ch = chr(int(m.group(1), 16))
+            ch = glyph_name_to_chars(name)
+            if ch:
+                self.gname2chars[gid].add(ch)
                 self.gid2chars[gid].add(ch)
-                n = unicodedata.normalize("NFKC", ch)
-                if n:
-                    self.gid2chars[gid].add(n)
 
     def char_for(self, cid):
+        # 1) glyph-name map: most reliable for Word Arabic fonts whose
+        #    ToUnicode maps are wrong but whose glyph names are intact.
+        gn = self.gname2chars.get(cid)
+        if gn:
+            ar = [c for c in gn if _is_arabic_str(c)]
+            if ar:
+                return sorted(ar, key=lambda c: (len(c) != 1, len(c)))[0]
+        # 2) outline overrides (fallback for glyphs without a useful name)
         if cid in self.override:
             return self.override[cid]
+        # 3) ToUnicode CMap from the PDF
         if cid in self.tu:
             return self.tu[cid]
         cands = self.gid2chars.get(cid)
