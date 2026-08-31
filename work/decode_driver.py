@@ -1,8 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Driver: decode a PDF into clean logical-order text."""
+"""Driver (v1, superseded by decode_driver_v2.py): decode a PDF to text.
+
+Kept for reference and for reproducing the intermediate files
+(``part2_decoded.txt``).  It hard-codes the xref numbers of the embedded
+fonts of *one* PDF, which is why ``decode_driver_v2.py`` replaced it: that
+driver identifies fonts by family name and resolves far more glyphs.
+"""
 import sys, os, re
 from collections import defaultdict
-import fitz
+
+try:                       # PyMuPDF >= 1.24
+    import pymupdf as fitz
+except ImportError:        # older installations
+    import fitz
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pdf_decoder import FontMap, PageDecoder
 from cmap_parser import parse_cmap
@@ -161,11 +171,10 @@ def cluster_and_order(items):
                         best_d = d
                         best = b
         if best is not None:
-            best.attached_marks = getattr(best, "attached_marks", [])
             best.attached_marks.append(m)
-            m._attached = True
+            m.attached = True
         else:
-            m._attached = False
+            m.attached = False
 
     # ---- 3. clusters + spaces -> tokens, x ascending ----
     lines = []
@@ -176,9 +185,9 @@ def cluster_and_order(items):
             tokens.append((b.x, "c", cl))
         # unattached marks nearest to this line
         for m in marks:
-            if not getattr(m, "_attached", False) and abs(m.y - med) <= MARK_Y_TOL:
+            if not m.attached and abs(m.y - med) <= MARK_Y_TOL:
                 tokens.append((m.x, "c", [m]))
-                m._attached = True
+                m.attached = True
         # space tokens on this line (baseline within tol)
         letter_xs = [x for x, _, _ in tokens]
         for sp in spaces:

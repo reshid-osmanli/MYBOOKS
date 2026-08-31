@@ -79,10 +79,19 @@ def parse_cmap(data):
                 except Exception:
                     continue
                 if len(dst) > 4:
-                    uni = _uni_from_hex(dst)
-                    if uni is not None:
-                        for cid in range(lo_i, hi_i + 1):
-                            mapping[cid] = uni
+                    # PDF 32000-1, 9.10.3: with a *string* destination the
+                    # last byte of the string is incremented for every cid,
+                    # so "A" "C" <004100420043> gives A, AB, ABC, not ABC
+                    # three times.  (Odd hex strings are truncated.)
+                    raw = bytes.fromhex(dst[:len(dst) - len(dst) % 2])
+                    for offset, cid in enumerate(range(lo_i, hi_i + 1)):
+                        b = bytearray(raw)
+                        if b:
+                            b[-1] = (b[-1] + offset) & 0xFF
+                        try:
+                            mapping[cid] = b.decode("utf-16-be")
+                        except Exception:
+                            pass
                     continue
                 for cid in range(lo_i, hi_i + 1):
                     try:
