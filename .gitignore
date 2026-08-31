@@ -1,14 +1,19 @@
-# خطوط أصلية من مصادر خارجية (تُنزَّل عند الحاجة)
+# خطوط أصلية من مصادر خارجية (تُنزَّل عند الحاجة عبر work/fetch_fonts.py)
 work/fonts/
 work/*.ttf
 work/*.otf
 work/*.woff
 work/*.woff2
 
+# بيئة Python
 .venv/
+__pycache__/
+*.py[cod]
 
 # مخرجات وسيطة
 work/*.png
-work/__pycache__/
 work/tree.json
-work/font_sakkal_bold.ttf
+
+# ملفات نظام
+.DS_Store
+Thumbs.db

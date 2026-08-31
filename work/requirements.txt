@@ -1,0 +1,3 @@
+# Reference-decoding pipeline for the "رتل مصمم" PDFs (see work/README.md)
+pymupdf>=1.23      # PDF parsing (content streams, embedded fonts)
+fonttools>=4.40    # TTF/OTF parsing: glyph names, cmap, glyf outlines

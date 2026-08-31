@@ -20,7 +20,6 @@ import io
 import unicodedata
 from collections import defaultdict
 
-import fitz
 from fontTools.ttLib import TTFont
 
 
@@ -246,8 +245,10 @@ def tokenize(data):
 
 
 class GlyphItem:
+    """One drawn glyph: its text, its device position and its advance."""
+
     __slots__ = ("chars", "x", "y", "font", "size", "is_mark", "width", "cid",
-                 "attached_marks", "_attached")
+                 "attached_marks", "attached")
 
     def __init__(self, chars, x, y, font, size, is_mark, width, cid=None):
         self.chars = chars
@@ -258,6 +259,10 @@ class GlyphItem:
         self.is_mark = is_mark
         self.width = width
         self.cid = cid
+        # marks that were attached to this glyph, and whether this glyph
+        # itself has been attached to a base letter
+        self.attached_marks = []
+        self.attached = False
 
 
 class PageDecoder:
@@ -466,9 +471,10 @@ class PageDecoder:
                     if ch is None:
                         ch = "\uFFFD"
                         self.unknown[(xref, cid)] += 1
-                    # glyph device position
-                    gx = ox + (ca * a + cc * b) * (tx / fs) if False else ox + sx * tx + sy * 0
-                    gy = oy + (cb * a + cd * b) * tx
+                    # glyph device position (sx/sy are the device-space
+                    # advance vectors of one text-space unit)
+                    gx = ox + sx * tx
+                    gy = oy + sy * tx
                     w = (fm.advance(cid) if fm else 0) / fm.upm * fs if fm else 0
                     is_mark = w < 0.5
                     self.items.append(GlyphItem(ch, gx, gy, font, fs, is_mark, w, cid=cid))
