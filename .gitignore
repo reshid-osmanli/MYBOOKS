@@ -17,3 +17,9 @@ work/tree.json
 # ملفات نظام
 .DS_Store
 Thumbs.db
+
+# مراجع خط أنابيب التفريغ الضوئي (تُنزَّل عبر work/newbook/fetch_refs.py)
+work/newbook/refs/
+work/newbook/sr_models/
+work/newbook/json/
+work/newbook/pages/
